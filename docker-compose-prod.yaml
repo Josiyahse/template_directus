@@ -1,0 +1,51 @@
+services:
+    database:
+        image: postgis/postgis:13-master
+        # Required when running on platform other than amd64, like Apple M1/M2:
+        # platform: linux/amd64
+        ports:
+            - "5436:5432"
+        volumes:
+            - directusDatabase:/var/lib/postgresql/data
+        env_file:
+            - .env
+        healthcheck:
+            test: [ "CMD", "pg_isready", "--host=localhost", "--username=directus" ]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_interval: 5s
+            start_period: 30s
+
+    cache:
+        image: redis:6
+        healthcheck:
+            test: [ "CMD-SHELL", "[ $$(redis-cli ping) = 'PONG' ]" ]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_interval: 5s
+            start_period: 30s
+
+    directus:
+        build:
+            context: .
+        ports:
+            - "8056:8055"
+        volumes:
+            - directusExtension:/directus/extensions
+            - directusUploads:/directus/uploads
+        depends_on:
+            database:
+                condition: service_healthy
+            cache:
+                condition: service_healthy
+
+        # Environment variables can also be defined in a file (for example `.env`):
+        env_file:
+            - .env
+
+volumes:
+    directusDatabase:
+    directusUploads:
+    directusExtension:
